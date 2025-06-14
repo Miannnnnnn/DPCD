@@ -1,0 +1,12 @@
+*.log
+
+# 忽略 scripts 目录下的所有文件
+scripts/*
+
+# 但保留以下三个文件
+!scripts/evaluate_model_Me_burgers.py
+!scripts/train.py
+!scripts/utils.py
+
+# 忽略整个 tools 文件夹
+tools/
