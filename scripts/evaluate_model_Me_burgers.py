@@ -3,26 +3,20 @@ import os
 import torch
 import copy
 import sys
+import numpy as np
 
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(),'..')))
 
 from attrdict import AttrDict
-
 from dpcnet.data.loader import data_loader
-# from dpcnet.models import TrajectoryGenerator
-# from dpcnet.models_prior_unet_burgers import TrajectoryGenerator
 from dpcnet.models_prior_unet_burgers import TrajectoryGenerator
-# from dpcnet.models_gph_simvp import TrajectoryGenerator
 from dpcnet.losses import displacement_error, final_displacement_error,toNE,trajectory_displacement_error,value_error,trajectory_diff,value_diff
 from dpcnet.utils import relative_to_abs, get_dset_path,dic2cuda
 from dpcnet.merge_net_all import Merge_Net_All
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 parser = argparse.ArgumentParser()
-#parser.add_argument('--model_path',default='model_save/mgchooser_pipre5lr1e4_evn_envshare_noclip_trainall_relu_tripchkecl_gph', type=str)
-parser.add_argument('--model_path',default=r'model_save/nu2.3e_725mgchooser_pipre5lr1e4_1950_2019_gph_uvmerge_all_slstm_newks3_imgloss11_unet_final_ks5_ch12_ecaattention_burgers20mse100', type=str)
-# parser.add_argument('--model_path',default=r'model_save/models', type=str)
-# parser.add_argument('--model_path',default=r'model_save/models_nu2.15_b12m88', type=str)
+parser.add_argument('--model_path',default=r'model_save/nu2.15e_burgers0.12', type=str)
 
 parser.add_argument('--num_samples', default=6, type=int)
 parser.add_argument('--dset_type', default='test', type=str)
@@ -49,7 +43,6 @@ def get_generator(checkpoint):
         grid_size=args.grid_size,
         batch_norm=args.batch_norm,
     )
-    #generator.load_state_dict(checkpoint['g_state'])
     generator.load_state_dict(checkpoint['g_state'], strict=False)
     generator.cuda()
     generator.eval()
@@ -135,13 +128,6 @@ def evaluate(args, loader, generator, num_samples,sava_path):
             pred_traj_gt_rel = torch.cat([pred_traj_gt_rel, pred_traj_gt_rel_Me], dim=2)
 
 
-            # pred_traj_fake_rel,_,_,_ = generator(
-            #     obs_traj, obs_traj_rel, seq_start_end,image_obs,env_data,
-            #     num_samples=num_samples, all_g_out=False)
-            # pred_traj_fake_rel, _, _, _,_,_ = generator(
-            #     obs_traj, obs_traj_rel, seq_start_end, image_obs,
-            #     u_image_obs, v_image_obs,
-            #     num_samples=num_samples, all_g_out=False)
             pred_traj_fake_rel, _, _, _, _ = generator(
                 obs_traj, obs_traj_rel, seq_start_end, image_obs,
                 u_image_obs, v_image_obs,
@@ -162,9 +148,7 @@ def evaluate(args, loader, generator, num_samples,sava_path):
             # 函数会改变参数变量
             real_pred_traj_gt,real_pred_traj_gt_Me = toNE(copy.deepcopy(pred_traj_gt),copy.deepcopy(pred_traj_gt_Me))
 
-                # ade.append(displacement_error(
-                #     pred_traj_fake, pred_traj_gt, mode='raw'
-                # ))
+            
             for sample_i in range(num_samples):
                 real_pred_traj_fake, real_pred_traj_fake_Me = toNE(pred_traj_fake[:,sample_i].squeeze(0),
                                                                    pred_traj_fake_rel_Me[:,sample_i].squeeze(0))
@@ -181,9 +165,6 @@ def evaluate(args, loader, generator, num_samples,sava_path):
                     real_pred_traj_fake_Me, real_pred_traj_gt_Me, mode='raw'
                 ))
 
-                # fde.append(final_displacement_error(
-                #     pred_traj_fake[-1], pred_traj_gt[-1], mode='raw'
-                # ))
             time_tde_sum = []
             time_ve_sum = []
             time_an_sum = []
@@ -203,8 +184,7 @@ def evaluate(args, loader, generator, num_samples,sava_path):
             for i in range(args.pred_len):
                 timeade = [x[:,i] for x in ve]
                 time_ve_sum.append(ve_evaluate_helper(timeade, seq_start_end))
-            # ade_sum = evaluate_helper(ade, seq_start_end)
-            # fde_sum = evaluate_helper(fde, seq_start_end)
+          
 
             tde_outer.append(time_tde_sum)
             ve_outer.append(time_ve_sum)
@@ -213,11 +193,7 @@ def evaluate(args, loader, generator, num_samples,sava_path):
             ana_outer.append(time_an_sum)
             time_anpv_sum = torch.stack(time_anpv_sum, dim=1)
             pv_outer.append(time_anpv_sum)
-            # saveana(ana_outer, pv_outer, gt, sava_path)
-            # fde_outer.append(fde_sum)
-        # ade_outer = torch.stack(ade_outer, dim=1)cvpr
-        # saveana(ana_outer,pv_outer,gt,sava_path)
-        # saveana(ana_outer, pv_outer, gt, sava_path)
+            #
         tde_outer = torch.tensor(tde_outer)
         ve_outer = torch.tensor(ve_outer)
         ade = torch.sum(tde_outer,dim=0) / (total_traj)
@@ -225,7 +201,7 @@ def evaluate(args, loader, generator, num_samples,sava_path):
         fde = 0
         return ade, ve
 
-import numpy as np
+
 def saveana(ana_outer,ve_outer,gt,sava_path):
     ana_outer = torch.cat(ana_outer, dim=0)
     ana_outer_np = ana_outer.data.cpu().numpy()
@@ -297,22 +273,19 @@ def main(args):
         paths = [args.model_path]
 
     for path in paths:
-
-
         if 'no_' in path or 'pt' not in path :
-        #     continue
-        # 如果路径不包含 '11000'，跳过当前文件
-        # if '11000' not in path:
             continue
+        
         modelpath = path
         checkpoint = torch.load(path)
-        # print(checkpoint['args'])
+
         generator = get_generator(checkpoint)
         _args = AttrDict(checkpoint['args'])
         path = get_dset_path(_args.dataset_name, args.dset_type)
         _, loader = data_loader(_args, path)
         tde, ve = evaluate(_args, loader, generator, args.num_samples,sava_path)
         print_log(modelpath,tde,ve,_args,log_file,'a')
+
         if torch.mean(tde).item() < min_error:
             min_error =torch.mean(tde).item()
             print('now_best==================:')
@@ -323,10 +296,7 @@ def main(args):
 
 
 def seed_torch():
-    seed = 1024 # 用户设定
-    # seed = 1234  # 用户设定
-    # seed = 3047
-    # seed = 3407
+    seed = 1024 
     os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)

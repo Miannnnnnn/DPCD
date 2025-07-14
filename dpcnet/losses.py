@@ -15,41 +15,7 @@ kernel_y = torch.tensor([[[[[-1], [0], [1]]]]], dtype=torch.float32).expand(1, 1
 kernel_xx = torch.tensor([[[[[1, -2, 1]]]]], dtype=torch.float32).expand(1, 1, 1, 1, 3)
 kernel_yy = torch.tensor([[[[[1], [-2], [1]]]]], dtype=torch.float32).expand(1, 1, 1, 3, 1)
 
-# def compute_burgers_residual(u, v, nu):
-#     # 计算空间导数
-#
-#     # 使用conv3d进行卷积
-#     u_x = F.conv3d(u, kernel_x, padding=(0, 0, 1))
-#     u_y = F.conv3d(u, kernel_y, padding=(0, 1, 0))
-#     v_x = F.conv3d(v, kernel_x, padding=(0, 0, 1))
-#     v_y = F.conv3d(v, kernel_y, padding=(0, 1, 0))
-#
-#     u_xx = F.conv3d(u, kernel_xx, padding=(0, 0, 1))
-#     u_yy = F.conv3d(u, kernel_yy, padding=(0, 1, 0))
-#     v_xx = F.conv3d(v, kernel_xx, padding=(0, 0, 1))
-#     v_yy = F.conv3d(v, kernel_yy, padding=(0, 1, 0))
-#
-#     # 计算 Burgers 方程的残差
-#     residual_u = u * u_x + v * u_y - nu * (u_xx + u_yy)
-#     residual_v = u * v_x + v * v_y - nu * (v_xx + v_yy)
-#
-#     return torch.mean(residual_u.pow(2) + residual_v.pow(2))
-#
-#
-# def burgers_loss(img_real, img_out, nu=7.704e-5):  # nu = 0.01/np.pi
-#     # 计算 MSE 损失
-#     # mse_loss = F.mse_loss(img_out, img_real)
-#
-#     # 计算基于预测与真实图像之差的 Burgers 残差损失
-#     difference = img_out - img_real
-#     u_diff = difference[:, 0:1, :, :, :]
-#     v_diff = difference[:, 1:2, :, :, :]
-#     residual_loss = compute_burgers_residual(u_diff, v_diff, nu)
-#
-#     # 组合总损失
-#     # total_loss = mse_loss * lambada + residual_loss * lambda_burgers
-#     # return total_loss
-#     return residual_loss
+
 
 def compute_burgers_residual(u, v, nu):
     """

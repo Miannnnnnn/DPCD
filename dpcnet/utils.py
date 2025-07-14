@@ -99,11 +99,6 @@ def relative_to_abs(rel_traj, start_pos):
 
     rel_traj = rel_traj.permute(2, 1, 0, 3)
     displacement = torch.cumsum(rel_traj, dim=2)
-    # start_pos = torch.unsqueeze(start_pos, dim=2)
     abs_traj = displacement + start_pos[:, None, None]
     return abs_traj.permute(2, 1, 0, 3)
-    # rel_traj = rel_traj.permute(1, 0, 2)
-    # displacement = torch.cumsum(rel_traj, dim=1)
-    # start_pos = torch.unsqueeze(start_pos, dim=1)
-    # abs_traj = displacement + start_pos
-    # return abs_traj.permute(1, 0, 2)
+

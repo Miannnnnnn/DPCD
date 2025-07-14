@@ -7,26 +7,8 @@ import cv2
 import torch
 from torch.utils.data import Dataset,DataLoader
 
-# logger = logging.getLogger(__name__)
-
-# def env_data_processing(env_data):
-#     env_data_merge = {}
-#     batch = len(env_data)
-#     for key in env_data[0]:
-#         env_data_merge[key] = []
-#     for env_data_item in env_data:
-#         for key in env_data_item:
-#             env_data_merge[key].append(torch.tensor(env_data_item[key]))
-#
-#     for key in env_data_merge:
-#         env_data_merge[key] = torch.stack(env_data_merge[key],dim=0).reshape(batch,-1).type(torch.float)
-#
-#     return env_data_merge
-
 def seq_collate(data):
-    # (obs_seq_list, pred_seq_list, obs_seq_rel_list, pred_seq_rel_list,
-    #  non_linear_ped_list, loss_mask_list,obs_traj_Me, pred_traj_gt_Me, obs_traj_rel_Me, pred_traj_gt_rel_Me,
-    #  obs_date_mask, pred_date_mask,image_obs,image_pre,env_data,tyID) = zip(*data)
+  
     (obs_seq_list, pred_seq_list, obs_seq_rel_list, pred_seq_rel_list,
      non_linear_ped_list, loss_mask_list, obs_traj_Me, pred_traj_gt_Me, obs_traj_rel_Me, pred_traj_gt_rel_Me,
      obs_date_mask, pred_date_mask,
@@ -61,12 +43,7 @@ def seq_collate(data):
 
     image_obs = torch.stack(image_obs, dim=0).permute(0,4,1,2,3)  # 转换后 image shape:(batch,channel,seq_len,w,h)
     image_pre = torch.stack(image_pre, dim=0).permute(0,4,1,2,3)
-    # env_data = env_data_processing(env_data)
-    # out = [
-    #     obs_traj, pred_traj, obs_traj_rel, pred_traj_rel, non_linear_ped,
-    #     loss_mask, seq_start_end, obs_traj_Me, pred_traj_Me, obs_traj_rel_Me, pred_traj_rel_Me,
-    #     obs_date_mask,pred_date_mask,image_obs,image_pre, env_data,tyID
-    # ]
+  
     out = [
         obs_traj, pred_traj, obs_traj_rel, pred_traj_rel, non_linear_ped,
         loss_mask, seq_start_end, obs_traj_Me, pred_traj_Me, obs_traj_rel_Me, pred_traj_rel_Me,
@@ -284,14 +261,8 @@ class TrajectoryDataset(Dataset):
         # std = np.array([59.03717801611257])
         # return (img-mean)/std
         modal_range = {'gph': (44490.578125,58768.4486860389),
-                      'mcc': (0,1),
                        '10v': (-48.2635498046875, 53.091079711914055),
-                       '10u': (-49.08894348144531, 47.56512451171875),
-                      # 'v': (-57.051047818536055, 77.03554781370354),
-                      # 'u': (-47.43710724744958, 60.35381568330466),
-                      'sst': (273,312),
-                      '100v': '/home/hc/Desktop/hca6000/TYDataset/wind_year_V100_centercrop',
-                      '100u': '/home/hc/Desktop/hca6000/TYDataset/wind_year_U100_centercrop',
+                       '10u': (-49.08894348144531, 47.56512451171875)
                       }
 
 
@@ -388,14 +359,7 @@ class TrajectoryDataset(Dataset):
         # env_path = os.path.join(env_root,year,tyname,env_date+'.npy')
         # env_data = np.load(env_path,allow_pickle=True).item()
 
-        modal_path = {'gph':r'D:\experiment\MGTCF\AAAI_data\geopotential_500_year_centercrop',
-                      #'gph': r'/root/autodl-tmp/MGTCF-main-uv/AAAI_data/geopotential_500_year_centercrop',
-                      'mcc':'/home/hc/Desktop/hca6000/TYDataset/wind_year_MCC_centercrop',
-                      '10v':'/home/hc/Desktop/hca6000/TYDataset/wind_year_V10_centercrop',
-                      '10u':'/home/hc/Desktop/hca6000/TYDataset/wind_year_U10_centercrop',
-                      'sst':'/home/hc/Desktop/hca6000/TYDataset/SST_year_centercrop',
-                      '100v': '/home/hc/Desktop/hca6000/TYDataset/wind_year_V100_centercrop',
-                      '100u': '/home/hc/Desktop/hca6000/TYDataset/wind_year_U100_centercrop',
+        modal_path = {'gph':r'D:\experiment\DPCD-Net\datasets\geopotentialp',
                       }
         data_dir = os.path.join(modal_path[self.modal_name], year, tyname)
         image_obs = []
@@ -440,19 +404,16 @@ class TrajectoryDataset(Dataset):
         image_obs_u = torch.tensor(np.array(image_obs_u), dtype=torch.float)
         image_pre_u = torch.tensor(np.array(image_pre_u), dtype=torch.float)
 
-        # print('u_image_obs:', u_image_obs)
-        # print('u_image_pre:', u_image_pre)
-        # return {'obs': image_obs, 'pre': image_pre,'env':env_data}
+      
         return {'u_obs': image_obs_u, 'u_pre': image_pre_u}
-        # u_data_dir = os.path.join(r'/root/autodl-tmp/uv_data/u', year, tyname)
-        # v_data_dir = os.path.join(r'/root/autodl-tmp/uv_data/v', year, tyname)
+        
     def get_img_v(self,tyid_dic):
         tyname = tyid_dic['new'][1]
         year = tyid_dic['old'][0][2:6]
         tydate = tyid_dic['tydate']
 
         data_dir_v = os.path.join(r'D:\experiment\uv_data\v', year, tyname)
-        #data_dir_v = os.path.join(r'/root/autodl-tmp/uv_data/v', year, tyname)
+       
 
         image_obs_v = []
         image_pre_v = []
@@ -469,9 +430,6 @@ class TrajectoryDataset(Dataset):
         image_obs_v = torch.tensor(np.array(image_obs_v), dtype=torch.float)
         image_pre_v = torch.tensor(np.array(image_pre_v), dtype=torch.float)
 
-        # print('u_image_obs:', u_image_obs)
-        # print('u_image_pre:', u_image_pre)
-        # return {'obs': image_obs, 'pre': image_pre,'env':env_data}
         return {'v_obs': image_obs_v, 'v_pre': image_pre_v}
 
     def __getitem__(self, index):
@@ -482,16 +440,7 @@ class TrajectoryDataset(Dataset):
         image = self.get_img_gph(self.tyID[start:end][0])
         image_u = self.get_img_u(self.tyID[start:end][0])
         image_v = self.get_img_v(self.tyID[start:end][0])
-        # out = [
-        #     self.obs_traj[start:end, :], self.pred_traj[start:end, :],
-        #     self.obs_traj_rel[start:end, :], self.pred_traj_rel[start:end, :],
-        #     self.non_linear_ped[start:end], self.loss_mask[start:end, :],
-        #     self.obs_traj_Me[start:end,:],self.pred_traj_Me[start:end,:],
-        #     self.obs_traj_rel_Me[start:end, :], self.pred_traj_rel_Me[start:end, :],
-        #     self.obs_date_mask[start:end, :],self.pred_date_mask[start:end, :],
-        #     image['obs'],image['pre'],image['env'],
-        #     self.tyID[start:end]
-        # ]
+        
         out = [
             self.obs_traj[start:end, :], self.pred_traj[start:end, :],
             self.obs_traj_rel[start:end, :], self.pred_traj_rel[start:end, :],
@@ -512,25 +461,10 @@ if __name__ == '__main__':
     path = r'D:\experiment\MGTCF-slstm-edit\datasets\1950_2019\test'
     dset = TrajectoryDataset(path,obs_len=8,pred_len=4,skip=1,delim='\t')
     loader = DataLoader(dset,batch_size=16,shuffle=True,num_workers=4,collate_fn=seq_collate)
-    # for batch in loader:
-    #     # pass
-    #     g_index = {'01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 1, '07': 2, '08': 2, '09': 2, '10': 1, '11': 0,
-    #                '12': 0, }
-    #     month_list = [g_index[batch[-1][i][0]['new'][0][4:6]] for i in range(len(batch[-1]))]
-    #     print(batch[-1])
-    #     image_obs = batch[-4]
-    #     image_pre = batch[-3]
-    #     env_data = batch[-2]
-    #     print(image_obs.shape)
-    #     print(image_pre.shape)
-    #     for x in env_data:
-    #         print(x,env_data[x].shape)
-    #     # print(env_data)
+ 
     for batch in loader:
         # pass
-        # g_index = {'01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 1, '07': 2, '08': 2, '09': 2, '10': 1, '11': 0,
-        #            '12': 0, }
-        # month_list = [g_index[batch[-1][i][0]['new'][0][4:6]] for i in range(len(batch[-1]))]
+        
         #print(batch[-1])
         u_image_obs = batch[-7]
         v_image_obs = batch[-6]
@@ -545,6 +479,4 @@ if __name__ == '__main__':
         #print(v_image_obs.shape)
         #print(u_image_pre.shape)
         #print(v_image_pre.shape)
-        # for x in env_data:
-        #     print(x,env_data[x].shape)
-        # print(env_data)
+

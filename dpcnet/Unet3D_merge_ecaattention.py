@@ -80,55 +80,6 @@ class ECAAttention(nn.Module):
         return x * y.view(b, c, 1, 1, 1)
 
 
-# class OutConv(nn.Module):
-#     def __init__(self, in_channel_list, out_channel, kernel_size, stride, padding):
-#         super(OutConv, self).__init__()
-#
-#         channel_sum = np.sum(np.array(in_channel_list))
-#         self.up_list = []
-#         for i, channel in enumerate(in_channel_list):
-#             if i == len(in_channel_list) - 1:
-#                 continue
-#             self.up_list.append(
-#                 nn.Sequential(
-#                     nn.ConvTranspose3d(channel, channel, kernel_size=[1, np.power(2, (len(in_channel_list) - 1) - i), np.power(2, (len(in_channel_list) - 1) - i)],
-#                                        stride=[1, np.power(2, (len(in_channel_list) - 1) - i), np.power(2, (len(in_channel_list) - 1) - i)], padding=padding, bias=True),
-#                     nn.ReLU(),
-#                     nn.Conv3d(channel, in_channel_list[-1], kernel_size=3, stride=1, padding=1, bias=True),
-#                     nn.BatchNorm3d(in_channel_list[-1]),
-#                     nn.ReLU(inplace=True)
-#                 )
-#             )
-#         self.up_list = nn.ModuleList(self.up_list)
-#
-#         self.conv = nn.Sequential(
-#             nn.Conv3d(in_channel_list[-1], out_channel, kernel_size=kernel_size, stride=stride, padding=padding),
-#             nn.BatchNorm3d(out_channel),
-#             nn.ReLU(),
-#             nn.Conv3d(out_channel, out_channel, kernel_size=1, stride=1, padding=0)
-#         )
-#
-#         # self.eca_attention = nn.ModuleList([ECAAttention(channel=ch) for ch in in_channel_list[:-1]])
-#         self.eca_attention = ECAAttention(channel=28)
-#
-#     def forward(self, x):
-#         x6, x7, x8, x9 = tuple(x)
-#         #print(x6.shape, x7.shape, x8.shape, x9.shape)
-#
-#         x6 = self.up_list[0](x6)
-#         x7 = self.up_list[1](x7)
-#         x8 = self.up_list[2](x8)
-#         #print(x6.shape, x7.shape, x8.shape, x9.shape)
-#         # 应用ECA注意力
-#         # x6 = self.eca_attention[0](x6)
-#         # x7 = self.eca_attention[1](x7)
-#         # x8 = self.eca_attention[2](x8)
-#         x_last = torch.cat([x6, x7, x8, x9], dim=2)
-#         # print(x_last.shape)
-#         x_last = self.eca_attention(x_last)
-#         # print(self.conv)
-#         return self.conv(x_last)
-
 class OutConv(nn.Module):
     def __init__(self, out_channel, kernel_size, stride, padding):
         super(OutConv, self).__init__()
@@ -197,11 +148,6 @@ class OutConv(nn.Module):
             nn.Conv3d(out_channel, out_channel, kernel_size=1, stride=1, padding=0)
         )
 
-        # self.out = nn.Sequential(
-        #     nn.Conv3d(16, 16, kernel_size=[5, 1, 1], stride=[2, 1, 1], padding=[0, 0, 0], bias=True),
-        #     nn.BatchNorm3d(16),
-        #     nn.ReLU(inplace=True)
-        # )
 
         self.eca_attention = ECAAttention(channel=12)
 
@@ -219,11 +165,6 @@ class OutConv(nn.Module):
 
         x8 = self.convtranspose_x8(x8)  # 调整为 (8, 64, 64)
         x8 = self.conv3d_x8(x8)  # 通过 Conv3d 进一步处理
-
-        # print("x6:", x6.shape)  # 输出应该为 (4, 64, 64)
-        # print("x7:", x7.shape)  # 输出应该为 (8, 64, 64)
-        # print("x8:", x8.shape)  # 输出应该为 (8, 64, 64)
-        # print("x9:", x9.shape)  # 保持为 (8, 64, 64)
 
         # 在维度 2（depth 维度）上拼接
         x_last = torch.cat([x6, x7, x8, x9], dim=2)
@@ -257,28 +198,18 @@ class Unet3D(nn.Module):
 
     def forward(self, x):
         batch, _, _, _, _ = x.shape
-        # print('x.shape:', x.shape)
+        
         x1 = self.inc(x)  # [64, 16, 8, 64, 64]
-        # print('x1.shape:', x1.shape)
         x2 = self.down1(x1)  # [64, 32, 8, 32, 32]
-        # print('x2.shape:', x2.shape)
         x3 = self.down2(x2)  # [64, 64, 8, 16, 16]
-        # print('x3.shape:', x3.shape)
         x4 = self.down3(x3)  # [64, 128, 4, 8, 8]
-        # print('x4.shape:', x4.shape)
+       
         x5 = self.down4(x4)  # [64, 128, 2, 4, 4]
-        # print('x5.shape:', x5.shape)
-
         x6 = self.up1(x5, x4)  # [64, 64, 4, 8, 8]
-        # print('x6.shape:', x6.shape)
         x7 = self.up2(x6, x3)  # [64, 32, 8, 16, 16]
-        # print('x7.shape:', x7.shape)
         x8 = self.up3(x7, x2)  # [64, 16, 8, 32, 32]
-        # print('x8.shape:', x8.shape)
-        x9 = self.up4(x8, x1)  # [64, 16, 8, 64, 64]
-        # print('x9.shape:', x9.shape)
 
-        # out = self.outc([x6, x7, x8, x9])  # [64, 1, 11, 64, 64]
+        x9 = self.up4(x8, x1)  # [64, 16, 8, 64, 64]
         out = self.outc(x6, x7, x8, x9)  # [64, 1, 11, 64, 64]
 
         return out
