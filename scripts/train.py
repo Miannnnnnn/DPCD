@@ -5,7 +5,6 @@ import os
 import sys
 import time
 import random
-
 from torch import autograd
 
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(),'..')))
@@ -29,21 +28,16 @@ from dpcnet.utils import int_tuple, bool_flag, get_total_norm,to_numpy,dic2cuda
 from dpcnet.utils import relative_to_abs, get_dset_path
 
 
-# from dpcnet.models import TrajectoryGenerator, TrajectoryDiscriminator
-#from dpcnet.models_prior_unet import TrajectoryGenerator, TrajectoryDiscriminator
-#from dpcnet.models_prior_unet_burgers import TrajectoryGenerator, TrajectoryDiscriminator
 torch.backends.cudnn.benchmark = True
-#
+
 
 gpu_num = '0'
 dataset_name = '1950_2019'
-# [gph,mcc,10v,10u,sst,100v,100u]
 modal = 'gph'
 pi_pre = True
-#pi_pre_epoch = 5
 pi_pre_epoch = 5
-output_dir = 'model_save/nu2.3e_725mgchooser_pipre5lr1e4_'+dataset_name+'_'+modal+'_uv'+'merge'+'_all'+'_slstm'+'_newks3'+'_imgloss11_unet_final_ks5_ch12_ecaattention_burgers20mse100'
-visdom_name = 'G_loss&D_loss_725mgchooser_pipre5lr1e4_'+dataset_name+'_'+modal+'_uv'+'merge'+'_all'+'_slstm'+'_newks3'+'_imgloss11_unet_final_ks5_ch12_ecaattention_burgers20mse100'
+output_dir = 'model_save/nu2.15e_burgers0.12'
+visdom_name = 'G_loss&D_loss_model_save/nu2.15e_burgers0.12'
 os.makedirs(output_dir,exist_ok=True)
 # print and log
 FORMAT = '[%(levelname)s: %(filename)s: %(lineno)4d]: %(message)s'
@@ -149,11 +143,6 @@ parser.add_argument('--gpu_num', default=gpu_num, type=str)
 def finetune_ini_weight(generator,discriminator):
     mmstn_path = 'pretrain_model/MMSTN_finetune.pt'
     checkpoint = torch.load(mmstn_path)
-
-    # model_dict = self.Unet.state_dict()
-    # state_dict = {k: v for k, v in pretrain_unet_model.items() if k in model_dict.keys()}
-    # model_dict.update(state_dict)
-    # self.Unet.load_state_dict(model_dict)
     #
     g_model_dict = generator.state_dict()
     pre_g_state_dict = {k: v for k, v in checkpoint['g_state'].items() if k in g_model_dict.keys()}
@@ -185,7 +174,6 @@ def get_dtypes(args):
     return long_dtype, float_dtype
 
 def adjust_learning_rate(optimizer, epoch, learning_rate):
-    # lr = args.learning_rate * (0.2 ** (epoch // 2))
 
     lr_adjust = {epoch: learning_rate * (0.5 ** ((epoch-1) // 1))}
 
@@ -258,14 +246,7 @@ def main(args):
 
     g_loss_fn = gan_g_loss
     d_loss_fn = gan_d_loss
-    ##tripletLoss = TripletLoss(1)
-
-    # generator,discriminator=finetune_ini_weight(generator, discriminator)
-
-    # optimizer_g = optim.AdamW(generator.parameters(), lr=args.g_learning_rate, betas=(0.5, 0.999))
-    # optimizer_d = optim.AdamW(
-    #     discriminator.parameters(), lr=args.d_learning_rate, betas=(0.5, 0.999)
-    # )
+    
     optimizer_g = optim.AdamW(generator.parameters(), lr=args.g_learning_rate, betas=(0.5, 0.999))
     optimizer_d = optim.AdamW(
         discriminator.parameters(), lr=args.d_learning_rate, betas=(0.5, 0.999)
@@ -295,13 +276,6 @@ def main(args):
         t = checkpoint['counters']['t']
         epoch = checkpoint['counters']['epoch']
         checkpoint['restore_ts'].append(t)
-        # 微调
-        # if args.finetune == True:
-        #     t, epoch = 0, 0
-        #     # parser.add_argument('--num_iterations', default=10000, type=int)
-        #     # parser.add_argument('--num_epochs', default=200, type=int)
-        #     args.num_iterations = 300
-        #     args.num_epochs = 50
 
     else:
         # Starting from scratch, so initialize checkpoint data structure
@@ -355,10 +329,6 @@ def main(args):
             pi_end = False
 
             if epoch > pi_pre_epoch or (not args.pinet_pre):
-                # if epoch > 0 or (not args.pinet_pre):
-                # losses_d = discriminator_step(args, batch, generator,
-                #                                   discriminator, d_loss_fn,
-                #                                   optimizer_d,tripletLoss)
                 losses_d = discriminator_step(args, batch, generator,
                                               discriminator, d_loss_fn,
                                               optimizer_d)
@@ -495,9 +465,7 @@ def main(args):
         lr_schedulerD.step()
         lr_schedulerG.step()
 
-# def dic2cuda(env_data):
-#     for key in env_data:
-#         env_data[key] = env_data[key].cuda()
+
 
 def net_chooser_step(
         args, batch, generator,
@@ -507,12 +475,10 @@ def net_chooser_step(
 
 
     # Shape (pred_len, num_samples, num_gens, b, 2)
-    ##env_data = dic2cuda(batch[-2])
     batch = [tensor.cuda() for tensor in batch[:-1]]
     (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, non_linear_ped,
      loss_mask, seq_start_end, obs_traj_Me, pred_traj_gt_Me, obs_traj_rel_Me, pred_traj_gt_rel_Me,
      obs_date_mask, pred_date_mask, image_obs_u, image_obs_v, image_pre_u, image_pre_v, image_obs, image_pre) = batch
-    # image_obs [b,c,len,h,w]
     losses = {}
     loss = torch.zeros(1).to(pred_traj_gt)
 
@@ -521,12 +487,6 @@ def net_chooser_step(
     obs_traj_rel = torch.cat([obs_traj_rel, obs_traj_rel_Me], dim=2)
     pred_traj_gt_rel = torch.cat([pred_traj_gt_rel, pred_traj_gt_rel_Me], dim=2)
 
-    # #generator_out, image_out,net_chooser_weights, _ = generator(obs_traj, obs_traj_rel, seq_start_end,
-    # #                                     image_obs,env_data,num_samples=1,all_g_out=True)
-    #generator_out, image_out, image_out_u, image_out_v, net_chooser_weights, _ = generator(obs_traj, obs_traj_rel, seq_start_end,
-    #                                                             image_obs, image_obs_u, image_obs_v, num_samples=1, all_g_out=True)
-    #generator_out, image_out, net_chooser_weights, _ = generator(obs_traj, obs_traj_rel, seq_start_end,
-    #                                                            image_obs, image_obs_u, image_obs_v, num_samples=1, all_g_out=True)
     generator_out, image_out, image_out_merge, net_chooser_weights, _ = generator(obs_traj, obs_traj_rel, seq_start_end,
                                                                  image_obs, image_obs_u, image_obs_v, num_samples=1,
                                                                  all_g_out=True)
@@ -536,11 +496,6 @@ def net_chooser_step(
 
     pred_traj_fake_rel = generator_out
     gen_out = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
-
-    # traj_real = torch.cat([obs_traj, pred_traj_gt], dim=0)
-    # traj_real_rel = torch.cat([obs_traj_rel, pred_traj_gt_rel], dim=0)
-    # traj_fake = torch.cat([obs_traj, pred_traj_fake], dim=0)
-    # traj_fake_rel = torch.cat([obs_traj_rel, pred_traj_fake_rel], dim=0)
 
 
     if weighting_target == "l2":
@@ -583,7 +538,6 @@ def net_chooser_step(
     losses["train_net_chooser_loss"]=loss.item()
 
 
-
     optimizer_g.zero_grad()
     loss.backward()
 
@@ -599,9 +553,6 @@ def discriminator_step(
 ):
 
     mse = nn.MSELoss()
-    # month_list = {'01':0,'02':0,'03':0,'04':0,'05':0,'06':1,'07':2,'08':2,'09':2,'10':1,'11':0,'12':0,}
-    # gs_index = np.array([month_list[batch[-1][i][0]['new'][0][4:6]] for i in range(len(batch[-1]))])
-    ##env_data = dic2cuda(batch[-2])
     batch = [tensor.cuda() for tensor in batch[:-1]]
     (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, non_linear_ped,
      loss_mask, seq_start_end,obs_traj_Me, pred_traj_gt_Me, obs_traj_rel_Me, pred_traj_gt_rel_Me,
@@ -615,13 +566,6 @@ def discriminator_step(
     obs_traj_rel = torch.cat([obs_traj_rel, obs_traj_rel_Me], dim=2)
     pred_traj_gt_rel = torch.cat([pred_traj_gt_rel, pred_traj_gt_rel_Me], dim=2)
 
-    #generator_out,image_out,image_out_u,image_out_v, _, _ = generator(obs_traj, obs_traj_rel, seq_start_end,image_obs,
-    #                                                                  image_obs_u, image_obs_v,
-    #                                                                  num_samples=1,all_g_out=False)
-    #generator_out, image_out, _, _ = generator(obs_traj, obs_traj_rel, seq_start_end,
-    #                                                                     image_obs,
-    #                                                                     image_obs_u, image_obs_v,
-    #                                                                     num_samples=1, all_g_out=False)
     generator_out, image_out, image_out_merge, _, _ = generator(obs_traj, obs_traj_rel, seq_start_end,
                                                image_obs,
                                                image_obs_u, image_obs_v,
@@ -634,22 +578,16 @@ def discriminator_step(
     traj_real_rel = torch.cat([obs_traj_rel, pred_traj_gt_rel], dim=0)
     traj_fake = torch.cat([obs_traj, pred_traj_fake.squeeze()], dim=0)
     traj_fake_rel = torch.cat([obs_traj_rel, pred_traj_fake_rel.squeeze()], dim=0)
-    # date_mask = torch.cat([obs_date_mask, pred_date_mask], dim=0)
 
     img_real = torch.cat([image_obs, image_pre], dim=2)
     img_real_u = torch.cat([image_obs_u, image_pre_u], dim=2)
     img_real_v = torch.cat([image_obs_v, image_pre_v], dim=2)
     img_real_merge = torch.cat([img_real_u, img_real_v], dim=1)
 
-    # 对于uv_merge的处理, 变为(b,c,h,w)
-    # conv = nn.Conv3d(in_channels=2, out_channels=1, kernel_size=1, stride=1, padding=0, bias=False).cuda()
-    # img_real_merge = conv(img_real_merge)
 
     img_fake = image_out
     img_fake_merge = image_out_merge
 
-    #scores_fake, future_fake = discriminator(traj_fake, traj_fake_rel, seq_start_end, img_fake)
-    #scores_real, future_real = discriminator(traj_real, traj_real_rel, seq_start_end, img_real)
     scores_fake, future_fake = discriminator(traj_fake, traj_fake_rel, seq_start_end, img_fake, img_fake_merge)
     scores_real, future_real = discriminator(traj_real, traj_real_rel, seq_start_end, img_real, img_real_merge)
 
@@ -657,25 +595,16 @@ def discriminator_step(
     image_loss = mse(img_real[:,:,1:],image_out[:,:,1:])
     image_loss_merge = mse(img_real_merge[:,:,1:], img_fake_merge[:,:,1:])
 
-    # image_loss = mse(img_real, image_out)
-    # image_loss_merge = mse(img_real_merge, img_fake_merge)
-
     # add burgers loss for u and v
     burgersloss = burgers_loss(img_real_merge, img_fake_merge)
-    # image_loss_total = image_loss + image_loss_merge
 
-
-    # image_loss_total = image_loss + image_loss_merge * 0.8 + burgersloss * 0.2
-    image_loss_total = image_loss + image_loss_merge + 0.2 * burgersloss
-
+    image_loss_total = image_loss + image_loss_merge + 0.12 * burgersloss
 
     data_loss = d_loss_fn(scores_real, scores_fake)
 
     losses['D_data_loss'] = data_loss.item()
-    # losses['image_loss'] = image_loss.item()
     losses['image_loss'] = image_loss_total.item()
     loss += data_loss
-    # loss += image_loss
     loss += image_loss_total
     losses['D_total_loss'] = loss.item()
 
@@ -698,10 +627,6 @@ def generator_step(
     args, batch, generator, discriminator, g_loss_fn, optimizer_g
 ):
     mse = nn.MSELoss()
-    # month_list = {'01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 1, '07': 2, '08': 2, '09': 2, '10': 1, '11': 0,
-    #               '12': 0, }
-    # gs_index = np.array([month_list[batch[-1][i][0]['new'][0][4:6]] for i in range(len(batch[-1]))])
-    ##env_data = dic2cuda(batch[-2])
     batch = [tensor.cuda() for tensor in batch[:-1]]
     (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, non_linear_ped,
      loss_mask, seq_start_end, obs_traj_Me, pred_traj_gt_Me, obs_traj_rel_Me, pred_traj_gt_rel_Me,
@@ -717,19 +642,6 @@ def generator_step(
     obs_traj_rel = torch.cat([obs_traj_rel, obs_traj_rel_Me], dim=2)
     pred_traj_gt_rel = torch.cat([pred_traj_gt_rel, pred_traj_gt_rel_Me], dim=2)
 
-        # generator 生成器每次的轨迹所输入的noise不一样，所以会输出不同的预测路径
-    # generator_out,image_out,_,_ = generator(obs_traj, obs_traj_rel, seq_start_end,image_obs,env_data,
-    #                                         num_samples=args.best_k,all_g_out=False,predrnn_img=None)
-
-    #generator_out, image_out, image_out_u, image_out_v, _, _ = generator(obs_traj, obs_traj_rel, seq_start_end, image_obs,
-    #                                                               image_obs_u, image_obs_v,
-    #                                                               num_samples=args.best_k, all_g_out=False,
-    #                                                               predrnn_img=None)
-    #generator_out, image_out, _, _ = generator(obs_traj, obs_traj_rel, seq_start_end,
-    #                                                                     image_obs,
-    #                                                                     image_obs_u, image_obs_v,
-    #                                                                     num_samples=args.best_k, all_g_out=False,
-    #                                                                     predrnn_img=None)
     generator_out, image_out, image_out_merge, _, _ = generator(obs_traj, obs_traj_rel, seq_start_end,
                                                image_obs,
                                                image_obs_u, image_obs_v,
@@ -745,21 +657,6 @@ def generator_step(
                 pred_traj_gt,
                 loss_mask,
                 mode='raw'))
-
-    # for sample_i in range(args.best_k):
-    #     # generator 生成器每次的轨迹所输入的noise不一样，所以会输出不同的预测路径
-    #     generator_out, image_out,image_out_u,image_out_v,_,_ = generator(obs_traj, obs_traj_rel, seq_start_end, image_obs, image_obs_u, image_obs_v,
-    #                                                num_samples=args.best_k, all_g_out=False, predrnn_img=None)
-    #
-    #     pred_traj_fake_rel = generator_out
-    #     # pred_traj_fake.shape [pre_len,1,b,4]
-    #     pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
-    #     if args.l2_loss_weight > 0:
-    #         g_l2_loss_rel.append(args.l2_loss_weight * l2_loss(
-    #             pred_traj_fake[:,sample_i].squeeze(),
-    #             pred_traj_gt,
-    #             loss_mask,
-    #             mode='raw'))
 
     g_l2_loss_sum_rel = torch.zeros(1).to(pred_traj_gt)
     if args.l2_loss_weight > 0:
@@ -782,33 +679,23 @@ def generator_step(
     img_real_v = torch.cat([image_obs_v, image_pre_v], dim=2)
     img_real_merge = torch.cat([img_real_u, img_real_v], dim=1)
 
-    # # 对于uv_merge的处理, 变为(b,c,h,w)
-    # conv = nn.Conv3d(in_channels=2, out_channels=1, kernel_size=1, stride=1, padding=0, bias=False).cuda()
-    # img_real_merge = conv(img_real_merge)
 
     img_fake = image_out #[b,1,12,h,w]
     img_fake_merge = image_out_merge
 
-    #scores_fake,_ = discriminator(traj_fake, traj_fake_rel, seq_start_end,img_fake)
     scores_fake, _ = discriminator(traj_fake, traj_fake_rel, seq_start_end, img_fake, img_fake_merge)
     discriminator_loss = g_loss_fn(scores_fake)
 
     image_loss = mse(img_real, img_fake)
     image_loss_merge = mse(img_real_merge, img_fake_merge)
-    # image_loss_total = image_loss + image_loss_merge
 
     # add burgers loss for u and v
     burgersloss = burgers_loss(img_real_merge, img_fake_merge)
-    # image_loss_total = image_loss + image_loss_merge
 
-    # image_loss_total = image_loss + image_loss_merge * 0.8 + burgersloss * 0.2
-    image_loss_total = image_loss + image_loss_merge + 0.2 * burgersloss
-
-    #image_loss_total = image_loss + burgersloss
+    image_loss_total = image_loss + image_loss_merge + 0.12 * burgersloss
 
     loss += discriminator_loss
     losses['G_discriminator_loss'] = discriminator_loss.item()
-    #loss += image_loss
     loss += image_loss_total
     losses['G_total_loss'] = loss.item()
 
@@ -837,11 +724,6 @@ def check_accuracy(
     generator.eval()
     with torch.no_grad():
         for batch in loader:
-            # month_list = {'01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 1, '07': 2, '08': 2, '09': 2, '10': 1,
-            #               '11': 0,
-            #               '12': 0, }
-            # gs_index = np.array([month_list[batch[-1][i][0]['new'][0][4:6]] for i in range(len(batch[-1]))])
-            # #env_data = dic2cuda(batch[-2])
             batch = [tensor.cuda() for tensor in batch[:-1]]
             (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel,
              non_linear_ped, loss_mask, seq_start_end,obs_traj_Me, pred_traj_gt_Me, obs_traj_rel_Me, pred_traj_gt_rel_Me,
@@ -854,13 +736,6 @@ def check_accuracy(
             obs_traj_rel = torch.cat([obs_traj_rel, obs_traj_rel_Me], dim=2)
             pred_traj_gt_rel = torch.cat([pred_traj_gt_rel, pred_traj_gt_rel_Me], dim=2)
 
-            #pred_traj_fake_rel,image_out,image_out_u,image_out_v, _,_ = generator(
-            #    obs_traj, obs_traj_rel, seq_start_end,image_obs,u_image_obs,v_image_obs,num_samples=1,all_g_out=False
-            #)
-            #pred_traj_fake_rel, image_out, _, _ = generator(
-            #    obs_traj, obs_traj_rel, seq_start_end, image_obs, u_image_obs, v_image_obs, num_samples=1,
-            #    all_g_out=False
-            #)
             pred_traj_fake_rel, image_out, image_out_merge,  _, _ = generator(
                 obs_traj, obs_traj_rel, seq_start_end, image_obs, u_image_obs, v_image_obs, num_samples=1,
                 all_g_out=False
@@ -893,21 +768,15 @@ def check_accuracy(
             traj_real_rel = torch.cat([obs_traj_rel, pred_traj_gt_rel], dim=0)
             traj_fake = torch.cat([obs_traj, pred_traj_fake], dim=0)
             traj_fake_rel = torch.cat([obs_traj_rel, pred_traj_fake_rel], dim=0)
-            # date_mask = torch.cat([obs_date_mask, pred_date_mask], dim=0)
 
             img_real = torch.cat([image_obs, image_pre], dim=2)
             img_real_u = torch.cat([u_image_obs, u_image_pre], dim=2)
             img_real_v = torch.cat([v_image_obs, v_image_pre], dim=2)
             img_real_merge = torch.cat([img_real_u, img_real_v], dim=1)
 
-            # conv = nn.Conv3d(in_channels=2, out_channels=1, kernel_size=1, stride=1, padding=0, bias=False).cuda()
-            # img_real_merge = conv(img_real_merge)
-
             img_fake = image_out
             img_fake_merge = image_out_merge
 
-            # scores_fake,_ = discriminator(traj_fake, traj_fake_rel, seq_start_end,img_fake)
-            # scores_real, _ = discriminator(traj_real, traj_real_rel, seq_start_end, img_real)
             scores_fake, _ = discriminator(traj_fake, traj_fake_rel, seq_start_end, img_fake,img_fake_merge)
             scores_real, _ = discriminator(traj_real, traj_real_rel, seq_start_end, img_real,img_real_merge)
 
@@ -991,8 +860,7 @@ def cal_fde(
     return fde, fde_l, fde_nl
 
 def seed_torch():
-    seed = 3047 # 用户设定 #1234 3047 1024
-    #seed = 3407
+    seed = 1024
     os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
