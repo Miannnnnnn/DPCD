@@ -1,15 +1,11 @@
 import os
 from dpcnet.merge_net_alll64_burgers import Merge_Net_All
-# from dpcnet.merge_net_burgers import Merge_Net_All
-# from dpcnet.merge_net_burgers_seblock import Merge_Net_All
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.distributions.categorical import Categorical
-# from dpcnet.Unet3D_merge_tiny import Unet3D
 from dpcnet.Unet3D_merge_ecaattention import Unet3D
-# from dpcnet.env_net import Env_net
 from dpcnet.slstm import sLSTM
 
 # issue中提到的解决loss不变的一个方式, 将make_mlp的激活函数 relu 改为 leakyrelu, 无效.
